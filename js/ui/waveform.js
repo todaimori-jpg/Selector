@@ -25,6 +25,19 @@ export class Waveform {
 
   setSpan(s) { this.span = s; this._lastKey = ""; }
 
+  /**
+   * The overview has to show where the zoomed view is looking, so it asks for that
+   * window instead of computing its own — its own is always 0, which is what pinned
+   * the position box to the left edge.
+   */
+  setWindowSource(fn) { this._windowSource = fn; this._lastKey = ""; }
+
+  /** Window the big view is showing, in seconds. */
+  visibleWindow() {
+    if (this._windowSource) return this._windowSource();
+    return { start: this.windowStart(), span: this.span };
+  }
+
   _fit() {
     const dpr = Math.min(DPR_CAP, window.devicePixelRatio || 1);
     const w = Math.max(1, Math.round(this.canvas.clientWidth * dpr));
@@ -115,42 +128,29 @@ export class Waveform {
       return;
     }
     const pk = rec.peaks;
-    const rate = pk.rate;
     const start = this.mode === "main" ? this.windowStart() : 0;
     const pps = this.mode === "main" ? this.pxPerSec : this.w / Math.max(0.001, deck.duration);
     const pos = deck.position;
 
     // Quantised to pixels: a frame that would draw identically is skipped.
+    const win = this.visibleWindow();
     const key = this.mode === "main"
       ? `m|${this.w}|${this.h}|${rec.id}|${Math.round(pps)}|${Math.round(start * pps)}`
-      : `o|${this.w}|${this.h}|${rec.id}|${Math.round(pos * pps)}|${Math.round(this.windowStart() * pps)}`;
+      : `o|${this.w}|${this.h}|${rec.id}|${Math.round(pos * pps * 4)}|${Math.round(win.start * pps)}|${Math.round(win.span * pps)}|${Math.round(deck.cue * pps)}`;
     if (!force && key === this._lastKey) return;
     this._lastKey = key;
 
     c.fillStyle = "#0a1120";
     c.fillRect(0, 0, this.w, this.h);
 
-    const mid = this.h / 2;
-    // Path2D survives the clip below, so the same geometry can be filled twice.
-    const path = new Path2D();
-    for (let px = 0; px < this.w; px++) {
-      const t0 = start + px / pps;
-      const t1 = start + (px + 1) / pps;
-      let b0 = Math.floor(t0 * rate), b1 = Math.ceil(t1 * rate);
-      if (b1 <= b0) b1 = b0 + 1;
-      b0 = clamp(b0, 0, pk.count - 1);
-      b1 = clamp(b1, 1, pk.count);
-      let lo = 1, hi = -1;
-      for (let b = b0; b < b1; b++) {
-        const a = pk.data[b * 2], z = pk.data[b * 2 + 1];
-        if (a < lo) lo = a;
-        if (z > hi) hi = z;
-      }
-      if (hi <= lo) { hi = 0.002; lo = -0.002; }
-      const y0 = mid - hi * mid * 0.94;
-      const y1 = mid - lo * mid * 0.94;
-      path.rect(px, y0, 1, Math.max(1, y1 - y0));
+    // The full-track envelope is static, and on a 40-minute file rebuilding it costs
+    // hundreds of thousands of array reads per frame, so the overview keeps its path.
+    if (this.mode === "main" || this._pathKey !== `p|${rec.id}|${this.w}|${pps.toFixed(4)}`) {
+      this._path = this._envelopePath(pk, start, pps);
+      this._pathKey = `p|${rec.id}|${this.w}|${pps.toFixed(4)}`;
     }
+    const path = this._path;
+
     c.fillStyle = this.color.dim;
     c.fill(path);
 
@@ -166,7 +166,32 @@ export class Waveform {
     }
 
     if (this.mode === "main") this._drawGrid(c, start, pps, pos);
-    else this._drawOverview(c, pps, pos);
+    else this._drawOverview(c, pps, pos, win);
+  }
+
+  /** One pixel column per bucket range, min and max folded into a single rect. */
+  _envelopePath(pk, start, pps) {
+    const path = new Path2D();
+    const mid = this.h / 2;
+    for (let px = 0; px < this.w; px++) {
+      const t0 = start + px / pps;
+      const t1 = start + (px + 1) / pps;
+      let b0 = Math.floor(t0 * pk.rate), b1 = Math.ceil(t1 * pk.rate);
+      if (b1 <= b0) b1 = b0 + 1;
+      b0 = clamp(b0, 0, pk.count - 1);
+      b1 = clamp(b1, 1, pk.count);
+      let lo = 1, hi = -1;
+      for (let b = b0; b < b1; b++) {
+        const a = pk.data[b * 2], z = pk.data[b * 2 + 1];
+        if (a < lo) lo = a;
+        if (z > hi) hi = z;
+      }
+      if (hi <= lo) { hi = 0.002; lo = -0.002; }
+      const y0 = mid - hi * mid * 0.94;
+      const y1 = mid - lo * mid * 0.94;
+      path.rect(px, y0, 1, Math.max(1, y1 - y0));
+    }
+    return path;
   }
 
   _drawGrid(c, start, pps, pos) {
@@ -230,20 +255,53 @@ export class Waveform {
       c.font = `${10 * this.dpr}px system-ui`;
       c.fillText("no peak map (long file)", 6 * this.dpr, this.h - 5 * this.dpr);
     } else {
-      this._drawOverview(c, pps, pos);
+      this._drawOverview(c, pps, pos, this.visibleWindow());
     }
   }
 
-  _drawOverview(c, pps, pos) {
+  /**
+   * The map of the whole track: what has played, what is coming, and where the
+   * zoomed view sits. Drag anywhere on it to jump.
+   */
+  _drawOverview(c, pps, pos, win) {
     const deck = this.deck;
-    c.fillStyle = "rgba(255,255,255,0.16)";
-    const winX = this.windowStart() * pps;
-    const winW = this.span * pps;
-    c.fillRect(clamp(winX, 0, this.w), 0, clamp(winW, 0, this.w - winX), this.h);
-    c.fillStyle = "#f2f7ff";
-    c.fillRect(Math.round(pos * pps), 0, Math.max(1, this.dpr), this.h);
+    const dur = Math.max(0.001, deck.duration);
+    const labelH = 11 * this.dpr;
+
+    // the next half minute, so "what is coming" is readable without counting ticks
+    const ahead = Math.min(dur, pos + 30);
+    c.fillStyle = "rgba(255,255,255,0.09)";
+    c.fillRect(pos * pps, 0, (ahead - pos) * pps, this.h - labelH);
+
+    // outline the zoomed window rather than filling it, so the shape stays visible
+    const winX = win.start * pps;
+    const winW = Math.max(2 * this.dpr, win.span * pps);
+    c.strokeStyle = "rgba(255,255,255,0.42)";
+    c.lineWidth = this.dpr;
+    c.strokeRect(Math.round(clamp(winX, 0, this.w)), Math.round(this.dpr), Math.round(Math.min(winW, this.w - winX)), Math.round(this.h - labelH - 2 * this.dpr));
+
+    // time ruler, spaced so labels never collide
+    const STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
+    const minPx = 72 * this.dpr;
+    const step = STEPS.find((s) => s * pps >= minPx) || STEPS[STEPS.length - 1];
+    c.font = `${9 * this.dpr}px system-ui`;
+    c.textBaseline = "bottom";
+    for (let t = step; t < dur; t += step) {
+      const x = Math.round(t * pps);
+      if (x > this.w - 4) break;
+      c.fillStyle = "rgba(160,190,220,0.30)";
+      c.fillRect(x, 0, 1, this.h - labelH);
+      c.fillStyle = "#7f93ad";
+      c.fillText(fmtTime(t), x + 3 * this.dpr, this.h - 1 * this.dpr);
+    }
+
     c.fillStyle = "#ffb347";
-    c.fillRect(Math.round(deck.cue * pps), 0, Math.max(1, this.dpr), this.h);
+    c.fillRect(Math.round(deck.cue * pps), 0, Math.max(1, this.dpr), this.h - labelH);
+    c.fillStyle = "#f2f7ff";
+    c.fillRect(Math.round(pos * pps), 0, Math.max(1, this.dpr * 1.5), this.h);
+
+    c.fillStyle = "#7f93ad";
+    c.fillText(`FULL ${fmtTime(dur)}`, 4 * this.dpr, this.h - 1 * this.dpr);
   }
 }
 

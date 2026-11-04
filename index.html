@@ -29,6 +29,8 @@
         <button class="seg" data-view="mixer" role="tab" type="button">Mixer</button>
         <button class="seg" data-view="tracks" role="tab" type="button">Tracks</button>
       </div>
+      <button id="btnImport" class="chip" type="button">＋ Music</button>
+      <button id="btnRecord" class="chip" type="button">● Record</button>
       <button id="btnMarker" class="chip" type="button">Marker</button>
       <button id="btnSettings" class="chip" type="button">Settings</button>
     </div>
@@ -77,11 +79,7 @@
       <div class="tracks">
         <div class="tracks-head">
           <h2>LIBRARY <span class="count" id="trackCount">0</span></h2>
-          <div class="tracks-tools">
-            <button class="chip" id="btnImport" type="button">＋ Files</button>
-            <input id="fileInput" type="file" accept="audio/*" multiple hidden>
-            <button class="chip" id="btnRecord" type="button">● Record</button>
-          </div>
+          <input id="fileInput" type="file" accept="audio/*" multiple hidden>
           <div class="tracks-tools">
             <button class="chip is-active" data-tab="library" type="button">Library</button>
             <button class="chip" data-tab="queue" type="button">Queue <span class="count" id="queueCount">0</span></button>

@@ -90,7 +90,8 @@ main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-
 .wave-wrap .tag { font-weight: 800; font-size: 13px; }
 canvas { display: block; width: 100%; touch-action: none; }
 .wave-main { height: 74px; }
-.wave-over { height: 34px; }
+/* the whole-track map needs room for its ruler, otherwise it reads as a divider */
+.wave-over { height: 58px; margin-bottom: 6px; border-bottom: 1px solid var(--line); }
 
 .grid-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 2px 12px; flex-wrap: wrap; }
 .hint { color: var(--dim); font-size: 11px; margin: 0; }

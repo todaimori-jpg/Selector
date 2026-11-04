@@ -37,6 +37,10 @@ twelve times less memory than a full-rate one — at 300 buckets per second. Any
 falls back to a timeline view rather than pretending to have detail. Drag the main view sideways to move
 beat 1, vertically to bend BPM; drag the overview to scrub.
 
+Above each grid sits the whole track as a static map: time ruler, the played part in full colour, the
+next thirty seconds shaded so you can see what is coming, the cue marked, and a box showing exactly what
+the zoomed view underneath is looking at. Drag anywhere on it to jump.
+
 **Fades.** 2, 5, 10, 20, 40 or 80 seconds, scheduled on the audio thread as short linear segments. A fade
 started before you lock the phone still finishes; the screen dimming does not leave a channel stuck half
 open. The default taper is constant-power (`sin`), so a two-channel crossfade sums flat instead of dipping
@@ -51,6 +55,8 @@ to a session log you can read or export as a running-order text file.
 
 **Recording.** Captures the master bus through `MediaRecorder`, so a take is exactly what the speakers heard,
 with the same fades and EQ you performed. Takes live in IndexedDB, download as files, and can sync to GitHub.
+**＋ Music** and **● Record** sit in the top bar rather than inside one view, so a take can be started from
+Decks, Mixer or Tracks without hunting for it.
 
 **Touch.** Pointer capture with coalesced event recovery, `touch-action: none` on every control, no
 double-tap zoom, no edge-swipe theft, 44 px hit targets, safe-area insets. Knobs use absolute angle with a

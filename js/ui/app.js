@@ -66,7 +66,7 @@ export class App {
     this.loop();
     this.status(this.library.tracks.length
       ? `${this.library.tracks.length} track${this.library.tracks.length === 1 ? "" : "s"} · ${this.library.queue.length} queued. Tap Enable audio.`
-      : "Add music from Files to begin.");
+      : "Add music with ＋ Music to begin.");
     if (login) {
       this.status(login.ok ? login.message : `Spotify: ${login.message}`);
       this.setTab("spotify");
@@ -139,6 +139,10 @@ export class App {
       };
       this.waves[id].main.setSpan(this.saved.span);
       this.waves[id].over.setSpan(this.saved.span);
+      this.waves[id].over.setWindowSource(() => ({
+        start: this.waves[id].main.windowStart(),
+        span: this.waves[id].main.span,
+      }));
 
       const p = deckPanel(id, id);
       dk.append(p.node);

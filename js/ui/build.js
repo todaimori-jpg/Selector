@@ -9,7 +9,9 @@ export function waveBlock(label, colorClass) {
   const over = el("canvas", "wave-over");
   over.setAttribute("aria-label", `Deck ${label} overview, drag to scrub`);
   const stack = el("div");
-  stack.append(main, over);
+  // overview first: the whole track reads as "what is coming" only if it sits above
+  // the zoomed grid you are actually mixing against
+  stack.append(over, main);
   wrap.append(tag, stack);
   return { node: wrap, main, over };
 }

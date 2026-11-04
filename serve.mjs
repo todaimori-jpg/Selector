@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { readFile, stat } from "node:fs/promises";
-import { extname, join, normalize, resolve } from "node:path";
+import { extname, join, normalize, relative, resolve } from "node:path";
 
 /**
  * Zero-dependency static server. ES modules will not load from file://, and
@@ -32,10 +32,11 @@ const server = createServer(async (req, res) => {
   let path = decodeURIComponent(url.pathname);
   if (PREFIX && path.startsWith(PREFIX)) path = path.slice(PREFIX.length) || "/";
 
-  // normalise first, then check containment: joining an unsanitised path lets ../ escape the root
+  // normalise first, then check containment: joining an unsanitised path lets ../ escape the root.
+  // relative() rather than startsWith(), because a sibling directory named "root-evil" would pass that.
   const rel = normalize(path).replace(/^(\.\.[/\\])+/, "");
   let file = resolve(join(ROOT, rel));
-  if (!file.startsWith(ROOT)) {
+  if (relative(ROOT, file).startsWith("..")) {
     res.writeHead(403).end("forbidden");
     return;
   }

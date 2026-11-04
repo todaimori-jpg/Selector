@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1">
+<meta name="theme-color" content="#0b1220">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Selector Compact 3 — a two-deck touch mixer for long-form and radio-style sets. All audio stays on the device.">
+<title>Selector · Compact 3</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-name">SELECTOR</span>
+      <span class="brand-sub">COMPACT 3</span>
+      <span class="brand-mode" id="modeLabel">Radio</span>
+    </div>
+    <div class="topbar-actions">
+      <button id="btnAudio" class="chip chip-accent" type="button">Enable audio</button>
+      <div class="segmented" role="tablist" aria-label="View">
+        <button class="seg is-active" data-view="decks" role="tab" type="button">Decks</button>
+        <button class="seg" data-view="mixer" role="tab" type="button">Mixer</button>
+        <button class="seg" data-view="tracks" role="tab" type="button">Tracks</button>
+      </div>
+      <button id="btnMarker" class="chip" type="button">Marker</button>
+      <button id="btnSettings" class="chip" type="button">Settings</button>
+    </div>
+  </header>
+
+  <div class="statusline" id="statusLine">Loading library…</div>
+
+  <main>
+    <section class="view is-active" data-view="decks">
+      <div class="waveforms" id="waveforms"></div>
+      <div class="grid-row">
+        <label class="field">
+          <span>Zoom</span>
+          <select id="spanSelect" aria-label="Waveform time span">
+            <option value="4">4 s</option>
+            <option value="8" selected>8 s</option>
+            <option value="16">16 s</option>
+            <option value="32">32 s</option>
+            <option value="120">2 min</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Fade</span>
+          <select id="fadeSelect" aria-label="Fade time">
+            <option value="2">2 s</option>
+            <option value="5">5 s</option>
+            <option value="10" selected>10 s</option>
+            <option value="20">20 s</option>
+            <option value="40">40 s</option>
+            <option value="80">80 s</option>
+          </select>
+        </label>
+        <p class="hint">Drag a waveform sideways to move beat 1, vertically to bend BPM. Drag the overview to scrub.</p>
+      </div>
+      <div class="decks" id="decks"></div>
+      <p class="fineprint">Files over about ten minutes stream instead of loading into memory, so a long
+        field recording cannot exhaust the tab. The deck badge shows which mode is in use.</p>
+    </section>
+
+    <section class="view" data-view="mixer">
+      <div class="channels" id="channels"></div>
+      <div class="master" id="master"></div>
+    </section>
+
+    <section class="view" data-view="tracks">
+      <div class="tracks">
+        <div class="tracks-head">
+          <h2>LIBRARY <span class="count" id="trackCount">0</span></h2>
+          <div class="tracks-tools">
+            <button class="chip" id="btnImport" type="button">＋ Files</button>
+            <input id="fileInput" type="file" accept="audio/*" multiple hidden>
+            <button class="chip" id="btnRecord" type="button">● Record</button>
+          </div>
+          <div class="tracks-tools">
+            <button class="chip is-active" data-tab="library" type="button">Library</button>
+            <button class="chip" data-tab="queue" type="button">Queue <span class="count" id="queueCount">0</span></button>
+            <button class="chip" data-tab="takes" type="button">Takes</button>
+            <button class="chip" data-tab="spotify" type="button">Spotify</button>
+          </div>
+          <search class="search">
+            <input id="searchInput" type="search" placeholder="Search tracks" aria-label="Search tracks">
+          </search>
+          <search class="search" id="spSearchRow" hidden>
+            <input id="spInput" type="search" placeholder="Search Spotify for a 30 s clip" aria-label="Search Spotify">
+            <button class="chip" id="spGo" type="button">Search</button>
+          </search>
+          <div class="tracks-tools">
+            <button class="chip chip-accent" id="btnNextA" type="button">Next → A</button>
+            <button class="chip chip-accent" id="btnNextB" type="button">Next → B</button>
+          </div>
+        </div>
+        <ul class="tracklist" id="trackList"></ul>
+        <ul class="tracklist" id="queueList" hidden></ul>
+        <ul class="tracklist" id="takeList" hidden></ul>
+        <ul class="tracklist" id="spList" hidden></ul>
+        <p class="fineprint">Audio stays on this device. Unprotected music files only. Nothing is uploaded
+          until you press Sync with a token configured.</p>
+      </div>
+    </section>
+  </main>
+
+  <div class="sheet-scrim" id="sheetScrim" hidden></div>
+  <div class="sheet" id="sheet" hidden>
+    <div class="sheet-body" id="sheetBody"></div>
+    <button class="sheet-close chip" id="sheetClose" type="button">Done</button>
+  </div>
+
+  <dialog id="settingsDialog">
+    <form method="dialog">
+      <h2>Settings</h2>
+      <section>
+        <h3>Playback</h3>
+        <label class="check"><input id="autoLevel" type="checkbox" checked> Auto-level new tracks to -18 dBFS RMS</label>
+        <label class="check"><input id="fineDrag" type="checkbox"> Fine fader drag (slower, more precise)</label>
+      </section>
+      <section>
+        <h3>Storage</h3>
+        <p class="fineprint" id="storageInfo">Calculating…</p>
+        <div class="row">
+          <button class="chip" id="btnPersist" type="button">Protect from eviction</button>
+          <button class="chip" id="btnExportTake" type="button" disabled>Download last take</button>
+        </div>
+      </section>
+      <section>
+        <h3>GitHub sync <span class="tag">optional</span></h3>
+        <p class="fineprint">
+          Publishes recordings and their running order into a repo path so the same takes appear on other
+          devices. Use a <strong>fine-grained</strong> token limited to that one repository with
+          <em>Contents: read &amp; write</em> only — a token typed here is readable by anything running in
+          this tab, so never give it broader access. Files over 1 MB cannot sync through this API.
+        </p>
+        <label class="field"><span>Owner</span><input id="ghOwner" autocomplete="off" spellcheck="false"></label>
+        <label class="field"><span>Repository</span><input id="ghRepo" autocomplete="off" spellcheck="false"></label>
+        <label class="field"><span>Branch</span><input id="ghBranch" value="main" autocomplete="off" spellcheck="false"></label>
+        <label class="field"><span>Path</span><input id="ghPath" value="takes" autocomplete="off" spellcheck="false"></label>
+        <label class="field"><span>Token</span><input id="ghToken" type="password" autocomplete="off" spellcheck="false"></label>
+        <div class="row">
+          <button class="chip" id="btnGhTest" type="button">Test</button>
+          <button class="chip" id="btnGhPull" type="button">Pull takes</button>
+          <button class="chip danger" id="btnGhClear" type="button">Forget token</button>
+        </div>
+        <p class="fineprint" id="ghStatus"></p>
+      </section>
+      <section>
+        <h3>Spotify clips <span class="tag">optional</span></h3>
+        <p class="fineprint">
+          Imports the 30-second preview clip Spotify publishes per track, as a real file you can cue, loop,
+          EQ and log like anything else. Full-length Spotify audio is not reachable from any web page: the
+          Web Playback SDK needs Premium plus Spotify's own player, and that stream cannot be recorded.
+          Needs your own app at
+          <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">developer.spotify.com</a>
+          with this exact Redirect URI added:
+        </p>
+        <p class="codeblock" id="spRedirect"></p>
+        <label class="field"><span>Client ID</span><input id="spClientId" autocomplete="off" spellcheck="false"></label>
+        <div class="row">
+          <button class="chip" id="spConnect" type="button">Connect</button>
+          <button class="chip danger" id="spForget" type="button">Forget</button>
+        </div>
+        <p class="fineprint" id="spStatus"></p>
+      </section>
+      <section>
+        <h3>Remote control</h3>
+        <p class="fineprint">Reserved for a second-device mixer. Disabled in this build because static
+          hosting cannot run a signalling server.</p>
+      </section>
+      <div class="sheet-foot"><button class="chip is-active" type="submit">Close</button></div>
+    </form>
+  </dialog>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

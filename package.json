@@ -1,0 +1,13 @@
+{
+  "name": "selector-compact3",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "description": "Two-deck touch mixer for long-form and radio-style sets. No build step, no dependencies.",
+  "scripts": {
+    "start": "node serve.mjs",
+    "start:subpath": "BASE=selector node serve.mjs",
+    "icons": "node tools/make-icons.mjs",
+    "check": "node tools/check.mjs"
+  }
+}

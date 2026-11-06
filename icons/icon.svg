@@ -1,18 +1,63 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#101827"/>
-      <stop offset="1" stop-color="#080d17"/>
+    <linearGradient id="case" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#292c2e"/>
+      <stop offset="1" stop-color="#101112"/>
+    </linearGradient>
+    <linearGradient id="dial" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#414345"/>
+      <stop offset="1" stop-color="#1b1c1e"/>
+    </linearGradient>
+    <linearGradient id="rim" x2="0" y2="1" gradientUnits="objectBoundingBox">
+      <stop stop-color="#a1a3a5"/>
+      <stop offset="1" stop-color="#333537"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="102" fill="url(#bg)"/>
-  <g stroke-linecap="round">
-    <circle cx="154" cy="256" r="70" fill="#131d2b" stroke="#2b3b52" stroke-width="4"/>
-    <line x1="154" y1="256" x2="112" y2="200" stroke="#4fd8e8" stroke-width="11"/>
-    <circle cx="358" cy="256" r="70" fill="#131d2b" stroke="#2b3b52" stroke-width="4"/>
-    <line x1="358" y1="256" x2="392" y2="196" stroke="#f06a9c" stroke-width="11"/>
-    <line x1="222" y1="256" x2="290" y2="256" stroke="#7891b4" stroke-width="7"/>
+  <path fill="url(#case)" d="M0 0h512v512H0z"/>
+  <g stroke-width="13">
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(0 256 256)"/>
+    <path d="M256 66v26" stroke="#33414b" transform="rotate(9 256 256)"/>
+    <path d="M256 66v26" stroke="#33414b" transform="rotate(18 256 256)"/>
+    <path d="M256 66v26" stroke="#33414b" transform="rotate(27 256 256)"/>
+    <path d="M256 66v26" stroke="#33414b" transform="rotate(36 256 256)"/>
+    <path d="M256 66v26" stroke="#33414b" transform="rotate(45 256 256)"/>
+    <path d="M256 66v26" stroke="#33414b" transform="rotate(54 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(63 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(72 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(81 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(90 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(99 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(108 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(117 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(126 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(135 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(144 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(153 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(162 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(171 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(180 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(189 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(198 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(207 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(216 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(225 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(234 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(243 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(252 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(261 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(270 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(279 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(288 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(297 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(306 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(315 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(324 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(333 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(342 256 256)"/>
+    <path d="M256 66v26" stroke="#13aff4" transform="rotate(351 256 256)"/>
   </g>
-  <circle cx="154" cy="256" r="9" fill="#4fd8e8"/>
-  <circle cx="358" cy="256" r="9" fill="#f06a9c"/>
+  <circle cx="256" cy="261" r="139" fill="#08090a" opacity=".65"/>
+  <circle cx="256" cy="256" r="135" fill="url(#dial)" stroke="url(#rim)" stroke-width="6"/>
+  <circle cx="256" cy="256" r="124" fill="none" stroke="#4c4e50" stroke-opacity=".6" stroke-width="2"/>
+  <path d="M256 144v76" fill="none" stroke="#d3ff32" stroke-width="18" stroke-linecap="round"/>
 </svg>

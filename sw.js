@@ -1,4 +1,4 @@
-const VERSION = "v6-console";
+const VERSION = "v7-fullscreen";
 const SHELL = [
   "./",
   "./index.html",

@@ -179,7 +179,46 @@ export class App {
     $("#fadeSelect").value = String(this.saved.fadeTime);
   }
 
+  bindFullscreen() {
+    const button = $("#btnFullscreen");
+    const root = document.documentElement;
+    const active = () => Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+    const update = () => {
+      const isFullscreen = active();
+      button.setAttribute("aria-pressed", String(isFullscreen));
+      button.textContent = isFullscreen ? "Exit fullscreen" : "Fullscreen";
+    };
+    const fallback = () => {
+      const touchApple = /iPad|iPhone|iPod/.test(navigator.userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      this.status(touchApple
+        ? "For a window without Safari controls, use Safari’s Share → Add to Home Screen, then open Selector from the icon."
+        : "Fullscreen is unavailable here. Try your browser’s Full Screen command.");
+    };
+
+    button.addEventListener("click", async () => {
+      try {
+        if (active()) {
+          const exit = document.exitFullscreen || document.webkitExitFullscreen;
+          if (!exit) { fallback(); return; }
+          await exit.call(document);
+        } else {
+          const enter = root.requestFullscreen || root.webkitRequestFullscreen;
+          if (!enter) { fallback(); return; }
+          await enter.call(root);
+        }
+        update();
+      } catch {
+        fallback();
+      }
+    });
+    document.addEventListener("fullscreenchange", update);
+    document.addEventListener("webkitfullscreenchange", update);
+    update();
+  }
+
   bindTopbar() {
+    this.bindFullscreen();
     $("#btnAudio").addEventListener("click", async () => {
       try {
         await this.engine.enable();

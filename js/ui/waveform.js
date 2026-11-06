@@ -108,7 +108,7 @@ export class Waveform {
     const deck = this.deck;
 
     if (!deck.hasTrack) {
-      c.fillStyle = "#0a1120";
+      c.fillStyle = "#111111";
       c.fillRect(0, 0, this.w, this.h);
       c.fillStyle = "#243349";
       c.font = `${11 * this.dpr}px system-ui`;
@@ -140,7 +140,7 @@ export class Waveform {
     if (!force && key === this._lastKey) return;
     this._lastKey = key;
 
-    c.fillStyle = "#0a1120";
+    c.fillStyle = "#111111";
     c.fillRect(0, 0, this.w, this.h);
 
     // The full-track envelope is static, and on a 40-minute file rebuilding it costs
@@ -151,7 +151,7 @@ export class Waveform {
     }
     const path = this._path;
 
-    c.fillStyle = this.color.dim;
+    c.fillStyle = this._envelopeColor(c, false);
     c.fill(path);
 
     const cut = this.mode === "main" ? (pos - start) * pps : pos * pps;
@@ -160,13 +160,23 @@ export class Waveform {
       c.beginPath();
       c.rect(0, 0, cut, this.h);
       c.clip();
-      c.fillStyle = this.color.bright;
+      c.fillStyle = this._envelopeColor(c, true);
       c.fill(path);
       c.restore();
     }
 
     if (this.mode === "main") this._drawGrid(c, start, pps, pos);
     else this._drawOverview(c, pps, pos, win);
+  }
+
+  // Color denotes amplitude within the envelope. Track data still drives its shape.
+  _envelopeColor(c, played) {
+    const gradient = c.createLinearGradient(0, 0, 0, this.h);
+    const [peak, mid, center] = this.color.envelope;
+    for (const [stop, color] of [[0, peak], [0.22, mid], [0.5, center], [0.78, mid], [1, peak]]) {
+      gradient.addColorStop(stop, color + (played ? "ff" : "bb"));
+    }
+    return gradient;
   }
 
   /** One pixel column per bucket range, min and max folded into a single rect. */
@@ -236,7 +246,7 @@ export class Waveform {
     const pps = this.mode === "main" ? this.pxPerSec : this.w / Math.max(0.001, deck.duration);
     const pos = deck.position;
 
-    c.fillStyle = "#0a1120";
+    c.fillStyle = "#111111";
     c.fillRect(0, 0, this.w, this.h);
     const mid = this.h / 2;
     c.strokeStyle = "#1c2a3d";
@@ -306,6 +316,8 @@ export class Waveform {
 }
 
 export const COLORS = {
-  a: { dim: "#1f5560", bright: "#4fd8e8" },
-  b: { dim: "#5c2a40", bright: "#f06a9c" },
+  a: { dim: "#37567e", envelope: ["#ff7946", "#9748ff", "#67c9ff"] },
+  b: { dim: "#753a35", envelope: ["#ffd97c", "#f34630", "#894ac6"] },
+  c: { dim: "#2f654c", envelope: ["#88d7ff", "#2e83ff", "#80eb72"] },
+  d: { dim: "#675021", envelope: ["#ffbf54", "#f25167", "#b6ef56"] },
 };

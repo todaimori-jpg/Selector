@@ -203,12 +203,11 @@ export function attachKnob(node, { value, onChange, sweep = 150, detents = [], o
 }
 
 /**
- * Horizontal fader (tempo, channel gain, master).
+ * Horizontal or vertical fader (tempo, channel gain, master).
  * Absolute along the track, with the same relative-pickup idea.
  */
-export function attachFader(node, { value, onChange, bipolar = false, onDouble, fine }) {
+export function attachFader(node, { value, onChange, bipolar = false, vertical = false, onDouble, fine }) {
   let val = clamp(value, 0, 1);
-  const width = () => node.getBoundingClientRect().width || 1;
   const paint = () => {
     node.style.setProperty("--pos", `${val * 100}%`);
     if (bipolar) {
@@ -231,11 +230,13 @@ export function attachFader(node, { value, onChange, bipolar = false, onDouble, 
     onStart: (d) => { d.startValue = val; },
     onMove: (d, m) => {
       const r = node.getBoundingClientRect();
-      const direct = (m.x - r.left) / width();
+      const length = (vertical ? r.height : r.width) || 1;
+      const direct = (vertical ? r.bottom - m.y : m.x - r.left) / length;
+      const delta = vertical ? d.startY - m.y : m.x - d.startX;
       const precise = !!fine?.();
       const near = !precise && Math.abs(direct - val) < 0.09;
       if (near) commit(direct);
-      else commit(d.startValue + (m.x - d.startX) / (width() * (precise ? 4 : 1)));
+      else commit(d.startValue + delta / (length * (precise ? 4 : 1)));
     },
     onKey: (key) => (key === "ArrowRight" || key === "ArrowUp" ? 0.01
       : key === "ArrowLeft" || key === "ArrowDown" ? -0.01 : undefined),
@@ -243,6 +244,9 @@ export function attachFader(node, { value, onChange, bipolar = false, onDouble, 
   });
 
   node.setAttribute("role", "slider");
+  node.setAttribute("aria-orientation", vertical ? "vertical" : "horizontal");
+  node.setAttribute("aria-valuemin", "0");
+  node.setAttribute("aria-valuemax", "1");
   if (onDouble) node.addEventListener("dblclick", () => { commit(onDouble()); tick(8); });
   paint();
   return {

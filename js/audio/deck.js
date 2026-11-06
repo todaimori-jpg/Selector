@@ -99,12 +99,14 @@ export class Deck {
   }
 
   stop() {
+    if (this.cueHold) { this.releaseCue(); return; }
     this.playing = false;
     this.source?.stop();
     this._emit();
   }
 
   pause() {
+    if (this.cueHold) { this.releaseCue(); return; }
     const p = this.position;
     this.playing = false;
     this.source?.stop();
@@ -225,9 +227,7 @@ export class Deck {
     this.cueHold = true;
     if (ch) {
       this._faderCache = ch.values.fader;
-      this._wasAudition = !!this.engine.cueAudition;
       ch.previewMute.gain.value = 0;
-      this.engine.setCueAudition(true);
       this.engine.cueSendFor(this.channelId, 1);
       this.engine.setChannelValue(this.channelId, "fader", 0);
     }
@@ -247,7 +247,6 @@ export class Deck {
       this.engine.cueSendFor(this.channelId, 0);
       ch.previewMute.gain.value = 1;
       this.engine.setChannelValue(this.channelId, "fader", this._faderCache ?? ch.values.fader);
-      if (!this._wasAudition) this.engine.setCueAudition(false);
     }
     this._emit();
   }

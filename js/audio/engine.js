@@ -15,6 +15,9 @@ export class Engine {
     this.channels = new Map();
     this.state = "idle";
     this._onState = [];
+    this.fxSettings = [{ on: false, wet: 0.3 }, { on: false, wet: 0.3 }];
+    this.delayTime = 0.4;
+    this.delayFeedback = 0.3;
   }
 
   onState(fn) { this._onState.push(fn); }
@@ -29,6 +32,7 @@ export class Engine {
         latencyHint: "interactive",
       });
       this._buildMaster();
+      this._buildFx();
       for (const ch of this.channels.values()) this._wireChannel(ch);
       // values set before the context existed are replayed now
       if (this.masterUnit !== undefined) this.setMaster(this.masterUnit);
@@ -78,16 +82,71 @@ export class Engine {
     this.cueOut.connect(ctx.destination);
   }
 
+  _buildFx() {
+    const ctx = this.ctx;
+    this.delay = ctx.createDelay(1);
+    this.feedback = ctx.createGain();
+    this.delay.connect(this.feedback);
+    this.feedback.connect(this.delay);
+    this.reverb = ctx.createConvolver();
+    const frames = Math.floor(ctx.sampleRate * 1.25);
+    const impulse = ctx.createBuffer(2, frames, ctx.sampleRate);
+    for (let channel = 0; channel < impulse.numberOfChannels; channel++) {
+      const samples = impulse.getChannelData(channel);
+      for (let i = 0; i < samples.length; i++) {
+        samples[i] = (Math.random() * 2 - 1) * (1 - i / frames) ** 3;
+      }
+    }
+    this.reverb.buffer = impulse;
+    this.fx = [this.delay, this.reverb].map((effect) => {
+      const out = ctx.createGain();
+      effect.connect(out);
+      out.connect(this.mix);
+      return { effect, out };
+    });
+    this.fxSettings.forEach(({ wet }, index) => this.setFxWet(index, wet));
+    this.setDelayTime(this.delayTime);
+    this.setDelayFeedback(this.delayFeedback);
+  }
+
+  setFxEnabled(slot, on) {
+    const setting = this.fxSettings[slot];
+    setting.on = on;
+    this.setFxWet(slot, setting.wet);
+  }
+
+  setFxWet(slot, wet) {
+    const setting = this.fxSettings[slot];
+    setting.wet = wet;
+    this.fx?.[slot].out.gain.setTargetAtTime(setting.on ? wet * 0.5 : 0, this.ctx.currentTime, 0.015);
+  }
+
+  setDelayTime(value) {
+    this.delayTime = value;
+    this.delay?.delayTime.setTargetAtTime(0.055 + value * 0.8, this.ctx.currentTime, 0.015);
+  }
+
+  setDelayFeedback(value) {
+    this.delayFeedback = value;
+    this.feedback?.gain.setTargetAtTime(value * 0.75, this.ctx.currentTime, 0.015);
+  }
+
+  setFxSend(id, slot, on) {
+    const ch = this.channels.get(id);
+    ch.fxOn[slot] = on;
+    ch.fxSends?.[slot].gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.015);
+  }
+
   addChannel(id) {
     const ch = {
       id,
       trim: null, hi: null, mid: null, lo: null, hpf: null, lpf: null,
-      fader: null, previewMute: null, cueSend: null,
-      values: { hi: 0.5, mid: 0.5, lo: 0.5, hpf: 0, lpf: 1, fader: 0.65 },
+      fader: null, previewMute: null, cueSend: null, fxOn: [false, false],
+      values: { gain: 0.5, hi: 0.5, mid: 0.5, lo: 0.5, hpf: 0, lpf: 1, fader: 0.65 },
       analyser: null, _buf: null,
     };
-    if (this.ctx) this._wireChannel(ch);
     this.channels.set(id, ch);
+    if (this.ctx) this._wireChannel(ch);
     return ch;
   }
 
@@ -115,13 +174,19 @@ export class Engine {
     ch.lo.connect(ch.hpf); ch.hpf.connect(ch.lpf); ch.lpf.connect(ch.fader);
     ch.fader.connect(ch.previewMute);
     ch.previewMute.connect(this.mix);
+    ch.fxSends = this.fx.map(({ effect }, slot) => {
+      const send = ctx.createGain();
+      send.gain.value = ch.fxOn[slot] ? 1 : 0;
+      ch.previewMute.connect(send);
+      send.connect(effect);
+      return send;
+    });
     // cue is pre-fader, so a channel can be muted in the mix and still be auditioned
     ch.lpf.connect(ch.cueSend);
     ch.cueSend.connect(this.cueMix);
     ch.fader.connect(ch.analyser);
 
-    for (const k of Object.keys(ch.values)) this.setChannelValue(ch.id, k, ch.values[k]);
-    if (ch.trimValue) ch.trim.gain.value = ch.trimValue;
+    for (const [key, value] of Object.entries(ch.values)) this.setChannelValue(ch.id, key, value);
   }
 
   /**
@@ -138,6 +203,7 @@ export class Engine {
     const set = (param, v) => param.setTargetAtTime(v, t, 0.008); // de-zipper without adding lag
     const db = (unit - 0.5) * 24;
     switch (key) {
+      case "gain": this.setTrim(id, ch.trimValue ?? 1); break;
       case "hi": set(ch.hi.gain, db); break;
       case "mid": set(ch.mid.gain, db); break;
       case "lo": set(ch.lo.gain, db); break;
@@ -198,7 +264,7 @@ export class Engine {
     const ch = this.channels.get(id);
     if (!ch) return;
     ch.trimValue = clamp(value, 0.02, 12);
-    if (ch.trim && this.ctx) ch.trim.gain.setTargetAtTime(ch.trimValue, this.ctx.currentTime, 0.02);
+    if (ch.trim && this.ctx) ch.trim.gain.setTargetAtTime(ch.trimValue * 10 ** ((ch.values.gain - 0.5) * 24 / 20), this.ctx.currentTime, 0.02);
   }
 
   /**
@@ -236,14 +302,20 @@ export class Engine {
   }
 
   setCueAudition(on) {
-    if (this.cueMix) this.cueMix.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.01);
     this.cueAudition = !!on;
+    this.updateCueMix();
   }
 
   cueSendFor(id, level) {
     const ch = this.channels.get(id);
     if (ch?.cueSend && this.ctx) ch.cueSend.gain.setTargetAtTime(clamp(level, 0, 1), this.ctx.currentTime, 0.01);
     if (ch) ch.cueLevel = clamp(level, 0, 1);
+    this.updateCueMix();
+  }
+
+  updateCueMix() {
+    const on = this.cueAudition || [...this.channels.values()].some((ch) => ch.cueLevel > 0);
+    this.cueMix?.gain.setTargetAtTime(on ? 1 : 0, this.ctx.currentTime, 0.01);
   }
 
   /** Peak dBFS for a stereo analyser, [-inf..0]. */

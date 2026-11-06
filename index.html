@@ -7,27 +7,27 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="description" content="Selector Compact 3 — a two-deck touch mixer for long-form and radio-style sets. Optional private headphone cue over local Wi-Fi.">
+<meta name="description" content="Selector Compact 3 — a four-deck touch mixer for long-form and radio-style sets. Optional private headphone cue over local Wi-Fi.">
 <title>Selector · Compact 3</title>
 <link rel="stylesheet" href="phone-cue.css">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/console.css">
 </head>
 <body>
 <div id="app">
   <header class="topbar">
     <div class="brand">
       <span class="brand-name">SELECTOR</span>
-      <span class="brand-sub">COMPACT 3</span>
+      <span class="brand-sub">PRO CONSOLE</span>
       <span class="brand-mode" id="modeLabel">Radio</span>
     </div>
     <div class="topbar-actions">
       <button id="btnAudio" class="chip chip-accent" type="button">Enable audio</button>
       <div class="segmented" role="tablist" aria-label="View">
-        <button class="seg is-active" data-view="decks" role="tab" type="button">Decks</button>
-        <button class="seg" data-view="mixer" role="tab" type="button">Mixer</button>
+        <button class="seg is-active" data-view="decks" role="tab" type="button">Mixer</button>
         <button class="seg" data-view="tracks" role="tab" type="button">Tracks</button>
       </div>
       <button id="btnImport" class="chip" type="button">＋ Music</button>
@@ -40,9 +40,9 @@
 
   <div class="statusline" id="statusLine">Loading library…</div>
 
-  <main>
+  <main class="console-main">
     <section class="view is-active" data-view="decks">
-      <div class="waveforms" id="waveforms"></div>
+      <div class="console-rack" id="consoleRack"></div>
       <div class="grid-row">
         <label class="field">
           <span>Zoom</span>
@@ -65,25 +65,21 @@
             <option value="80">80 s</option>
           </select>
         </label>
-        <p class="hint">Drag a waveform sideways to move beat 1, vertically to bend BPM. Drag the overview to scrub.</p>
-      </div>
-      <div class="decks" id="decks"></div>
-      <p class="fineprint">Files over about ten minutes stream instead of loading into memory, so a long
-        field recording cannot exhaust the tab. The deck badge shows which mode is in use.</p>
-    </section>
 
-    <section class="view" data-view="mixer">
-      <div class="channels" id="channels"></div>
-      <div class="master" id="master"></div>
+      </div>
+      <div class="console-stage">
+        <div class="decks" id="decks"></div>
+        <div class="channels" id="channels" aria-label="Four-channel mixer"></div>
+      </div>
     </section>
 
     <section class="view" data-view="tracks">
       <div class="tracks">
         <div class="tracks-head">
-          <h2>LIBRARY <span class="count" id="trackCount">0</span></h2>
+          <h2>TRACK COLLECTION <span class="count" id="trackCount">0</span></h2>
           <input id="fileInput" type="file" accept="audio/*" multiple hidden>
-          <div class="tracks-tools">
-            <button class="chip is-active" data-tab="library" type="button">Library</button>
+          <div class="tracks-tools collection-nav">
+            <button class="chip is-active" data-tab="library" type="button">All Tracks</button>
             <button class="chip" data-tab="queue" type="button">Queue <span class="count" id="queueCount">0</span></button>
             <button class="chip" data-tab="takes" type="button">Takes</button>
             <button class="chip" data-tab="spotify" type="button">Spotify</button>
@@ -98,14 +94,17 @@
           <div class="tracks-tools">
             <button class="chip chip-accent" id="btnNextA" type="button">Next → A</button>
             <button class="chip chip-accent" id="btnNextB" type="button">Next → B</button>
+            <button class="chip chip-accent" id="btnNextC" type="button">Next → C</button>
+            <button class="chip chip-accent" id="btnNextD" type="button">Next → D</button>
           </div>
         </div>
-        <ul class="tracklist" id="trackList"></ul>
+        <div class="collection" aria-label="Track collection">
+          <div class="collection-head" aria-hidden="true"><span>#</span><span>Title</span><span>Artist</span><span>BPM</span><span>Time</span><span>File</span><span>Load</span></div>
+          <ul class="tracklist" id="trackList"></ul>
         <ul class="tracklist" id="queueList" hidden></ul>
         <ul class="tracklist" id="takeList" hidden></ul>
         <ul class="tracklist" id="spList" hidden></ul>
-        <p class="fineprint">Audio stays on this device. Unprotected music files only. Nothing is uploaded
-          until you press Sync with a token configured.</p>
+        </div>
       </div>
     </section>
   </main>

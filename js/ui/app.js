@@ -1,3 +1,4 @@
+import { mountPhoneCue } from "../../phone-cue.js";
 import { Engine } from "../audio/engine.js";
 import { Deck } from "../audio/deck.js";
 import { Recorder, extFor } from "../audio/recorder.js";
@@ -55,6 +56,16 @@ export class App {
     this.bindChannels();
     this.engine.setFaderCurve(this.saved.curve);
     this.bindMaster();
+    mountPhoneCue($("#phoneCueButton"), () => this.engine.enable(), () => {
+      const route = this.engine.routePhoneCue();
+      return {
+        stream: route.stream,
+        release: () => {
+          for (const deck of Object.values(this.decks)) deck.releaseCue();
+          route.release();
+        },
+      };
+    });
     this.bindTracks();
     this.bindRecorder();
     this.bindSettings();
@@ -467,7 +478,7 @@ export class App {
         this.controls[`ch-${id}-${key}`] = knob;
       }
 
-      const setCueUi = (on) => { strip.cue.classList.toggle("is-on", on); this.syncDeck(id); };
+      deck.onChange(() => strip.cue.classList.toggle("is-on", deck.cueHold));
       const cueBlocked = () => {
         if (deck.hasTrack) return false;
         this.status(`Deck ${id}: nothing to cue.`);
@@ -478,16 +489,14 @@ export class App {
         if (!this._cueHoldMode || cueBlocked()) return;
         await this.engine.enable();
         deck.startCuePreview();
-        setCueUi(true);
       });
-      const endHold = () => { if (this._cueHoldMode && deck.cueHold) { deck.releaseCue(); setCueUi(false); } };
+      const endHold = () => { if (this._cueHoldMode && deck.cueHold) deck.releaseCue(); };
       strip.cue.addEventListener("pointerup", endHold);
       strip.cue.addEventListener("pointercancel", endHold);
       strip.cue.addEventListener("click", async () => {
         if (this._cueHoldMode || cueBlocked()) return;
         await this.engine.enable();
         deck.toggleCuePreview();
-        setCueUi(deck.cueHold);
       });
 
       deck.onChange(() => { strip.name.textContent = deck.hasTrack ? deck.rec.name : "No track loaded"; });
@@ -510,6 +519,10 @@ export class App {
     m.masterOut.textContent = `${Math.round(knob.value * 100)}%`;
 
     m.cueMaster.addEventListener("click", () => {
+      if (this.engine.phoneCueActive) {
+        this.status("Cue is routed to the iPhone. End the phone session to use local cue.");
+        return;
+      }
       const on = !m.cueMaster.classList.contains("is-active");
       m.cueMaster.classList.toggle("is-active", on);
       this.engine.setCueAudition(on);

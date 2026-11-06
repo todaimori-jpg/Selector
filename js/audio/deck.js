@@ -226,6 +226,7 @@ export class Deck {
     if (ch) {
       this._faderCache = ch.values.fader;
       this._wasAudition = !!this.engine.cueAudition;
+      ch.previewMute.gain.value = 0;
       this.engine.setCueAudition(true);
       this.engine.cueSendFor(this.channelId, 1);
       this.engine.setChannelValue(this.channelId, "fader", 0);
@@ -244,6 +245,7 @@ export class Deck {
     const ch = this.engine.channels.get(this.channelId);
     if (ch) {
       this.engine.cueSendFor(this.channelId, 0);
+      ch.previewMute.gain.value = 1;
       this.engine.setChannelValue(this.channelId, "fader", this._faderCache ?? ch.values.fader);
       if (!this._wasAudition) this.engine.setCueAudition(false);
     }

@@ -1,7 +1,10 @@
-const VERSION = "v4";
+const VERSION = "v5-phone-cue";
 const SHELL = [
   "./",
   "./index.html",
+  "./phone-cue.html",
+  "./phone-cue.js",
+  "./phone-cue.css",
   "./css/app.css",
   "./js/main.js",
   "./js/ui/app.js",
@@ -51,14 +54,15 @@ self.addEventListener("fetch", (e) => {
   if (req.method !== "GET") return;
 
   if (req.mode === "navigate") {
+    const shell = url.pathname.endsWith("/phone-cue.html") ? "./phone-cue.html" : "./index.html";
     e.respondWith((async () => {
       try {
         const fresh = await fetch(req);
         const cache = await caches.open(`${VERSION}:shell`);
-        cache.put("./index.html", fresh.clone());
+        if (fresh.ok) cache.put(shell, fresh.clone());
         return fresh;
       } catch {
-        return (await caches.match("./index.html")) || Response.error();
+        return (await caches.match(shell)) || Response.error();
       }
     })());
     return;

@@ -5,7 +5,7 @@ import { clamp, gainFromUnit } from "../lib/dom.js";
  * a context that was constructed outside one).
  *
  * graph:  deck -> trim -> [hi shelf | mid peak | lo shelf] -> hpf -> lpf -> fader -> mix
- *         fader -> cueSend -> cueMix -> out   (pre-master so cueing works with the channel down)
+ *         lpf -> cueSend -> cueMix -> local monitor or phone stream
  *         mix -> master -> analyser -> speakers
  *                              -> recorder tap
  */
@@ -82,7 +82,7 @@ export class Engine {
     const ch = {
       id,
       trim: null, hi: null, mid: null, lo: null, hpf: null, lpf: null,
-      fader: null, cueSend: null,
+      fader: null, previewMute: null, cueSend: null,
       values: { hi: 0.5, mid: 0.5, lo: 0.5, hpf: 0, lpf: 1, fader: 0.65 },
       analyser: null, _buf: null,
     };
@@ -101,6 +101,7 @@ export class Engine {
     ch.hpf = ctx.createBiquadFilter(); ch.hpf.type = "highpass"; ch.hpf.Q.value = 0.707;
     ch.lpf = ctx.createBiquadFilter(); ch.lpf.type = "lowpass"; ch.lpf.Q.value = 0.707;
     ch.fader = ctx.createGain();
+    ch.previewMute = ctx.createGain();
     ch.cueSend = ctx.createGain(); ch.cueSend.gain.value = 0;
     ch.analyser = ctx.createAnalyser();
     ch.analyser.fftSize = 1024;
@@ -112,7 +113,8 @@ export class Engine {
 
     ch.trim.connect(ch.hi); ch.hi.connect(ch.mid); ch.mid.connect(ch.lo);
     ch.lo.connect(ch.hpf); ch.hpf.connect(ch.lpf); ch.lpf.connect(ch.fader);
-    ch.fader.connect(this.mix);
+    ch.fader.connect(ch.previewMute);
+    ch.previewMute.connect(this.mix);
     // cue is pre-fader, so a channel can be muted in the mix and still be auditioned
     ch.lpf.connect(ch.cueSend);
     ch.cueSend.connect(this.cueMix);
@@ -215,6 +217,22 @@ export class Engine {
 
   setMaster(unit) {    this.masterUnit = clamp(unit, 0, 1);
     if (this.ctx && this.master) this.master.gain.setTargetAtTime(gainFromUnit(this.masterUnit), this.ctx.currentTime, 0.008);
+  }
+
+  routePhoneCue() {
+    const destination = this.ctx.createMediaStreamDestination();
+    this.cueOut.gain.value = 0;
+    this.cueMix.connect(destination);
+    this.phoneCueActive = true;
+    return {
+      stream: destination.stream,
+      release: () => {
+        this.cueMix.disconnect(destination);
+        destination.stream.getTracks().forEach((track) => track.stop());
+        this.phoneCueActive = false;
+        this.cueOut.gain.value = 1;
+      },
+    };
   }
 
   setCueAudition(on) {

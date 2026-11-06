@@ -7,8 +7,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="description" content="Selector Compact 3 — a two-deck touch mixer for long-form and radio-style sets. All audio stays on the device.">
+<meta name="description" content="Selector Compact 3 — a two-deck touch mixer for long-form and radio-style sets. Optional private headphone cue over local Wi-Fi.">
 <title>Selector · Compact 3</title>
+<link rel="stylesheet" href="phone-cue.css">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -30,6 +31,7 @@
         <button class="seg" data-view="tracks" role="tab" type="button">Tracks</button>
       </div>
       <button id="btnImport" class="chip" type="button">＋ Music</button>
+      <button id="phoneCueButton" class="chip" type="button" aria-haspopup="dialog" aria-pressed="false">Phone cue</button>
       <button id="btnRecord" class="chip" type="button">● Record</button>
       <button id="btnMarker" class="chip" type="button">Marker</button>
       <button id="btnSettings" class="chip" type="button">Settings</button>

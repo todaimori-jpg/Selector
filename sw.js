@@ -26,9 +26,9 @@ const SHELL = [
   "./js/lib/github.js",
   "./js/lib/spotify.js",
   "./manifest.webmanifest",
-  "./icons/icon.svg",
-  "./icons/icon-192.png",
-  "./icons/icon-512.png",
+  "./icons/icon.svg?v=rotary",
+  "./icons/icon-192.png?v=rotary",
+  "./icons/icon-512.png?v=rotary",
 ];
 
 self.addEventListener("install", (e) => {

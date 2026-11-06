@@ -1,4 +1,5 @@
 import { mountPhoneCue } from "../../phone-cue.js";
+import { makeFxRack } from "./fx-rack.js";
 import { Engine } from "../audio/engine.js";
 import { Deck } from "../audio/deck.js";
 import { Recorder, extFor } from "../audio/recorder.js";
@@ -15,10 +16,12 @@ import { waveBlock, deckPanel, channelStrip, masterPanel } from "./build.js";
 
 const $ = (s) => document.querySelector(s);
 const STORE_KEY = "ui-state";
+const DECK_IDS = ["A", "B", "C", "D"];
 // 0 VU on the meter is -18 dBFS, so that is the level new tracks are trimmed toward.
 const LEVEL_TARGET_DB = -18;
 
 const KNOB_SPECS = {
+  gain: { label: "GAIN", home: 0.5, fmt: (v) => `${((v - 0.5) * 24).toFixed(1)} dB` },
   hi: { label: "HIGH", home: 0.5, fmt: (v) => `${((v - 0.5) * 24).toFixed(1)} dB` },
   mid: { label: "MID", home: 0.5, fmt: (v) => `${((v - 0.5) * 24).toFixed(1)} dB` },
   lo: { label: "LOW", home: 0.5, fmt: (v) => `${((v - 0.5) * 24).toFixed(1)} dB` },
@@ -32,7 +35,8 @@ const FADE_TIMES = [2, 5, 10, 20, 40, 80];
 export class App {
   constructor() {
     this.engine = new Engine();
-    this.decks = { A: new Deck(this.engine, "A"), B: new Deck(this.engine, "B") };
+    this.decks = Object.fromEntries(DECK_IDS.map((id) => [id, new Deck(this.engine, id)]));
+    this.masterDeck = "A";
     this.library = new Library(this.engine);
     this.log = new SessionLog();
     this.recorder = new Recorder(this.engine);
@@ -91,7 +95,7 @@ export class App {
       span: s.span ?? 8,
       view: s.view ?? "decks",
       auditionHold: !!s.auditionHold,
-      channels: s.channels || { A: {}, B: {} },
+      channels: s.channels || {},
       master: s.master ?? 0.8,
       fadeTime: s.fadeTime ?? 10,
       autoLevel: s.autoLevel !== false,
@@ -108,7 +112,7 @@ export class App {
     clearTimeout(this._persistTimer);
     this._persistTimer = setTimeout(async () => {
       const channels = {};
-      for (const id of ["A", "B"]) {
+      for (const id of DECK_IDS) {
         channels[id] = {};
         for (const k of Object.keys(KNOB_SPECS)) {
           const c = this.controls[`ch-${id}-${k}`];
@@ -138,12 +142,10 @@ export class App {
 
   // ---------- ui ----------
   buildUi() {
-    const wf = $("#waveforms");
     const dk = $("#decks");
     const ch = $("#channels");
-    for (const id of ["A", "B"]) {
-      const w = waveBlock(id, id === "A" ? "is-a" : "is-b");
-      wf.append(w.node);
+    for (const id of DECK_IDS) {
+      const w = waveBlock(id, `is-${id.toLowerCase()}`);
       this.waves[id] = {
         main: new Waveform(w.main, this.decks[id], { color: COLORS[id.toLowerCase()], mode: "main" }),
         over: new Waveform(w.over, this.decks[id], { color: COLORS[id.toLowerCase()], mode: "over" }),
@@ -156,15 +158,22 @@ export class App {
       }));
 
       const p = deckPanel(id, id);
+      p.node.dataset.deck = id;
+      p.waveform.append(w.node);
       dk.append(p.node);
       this.controls[`deck-${id}`] = p;
 
       const c = channelStrip(id, id);
+      c.node.dataset.deck = id;
       ch.append(c.node);
       this.controls[`strip-${id}`] = c;
     }
     const m = masterPanel();
-    $("#master").append(m.node);
+    const readout = el("div", "console-clock");
+    this.masterTempo = el("strong", "master-bpm", "—");
+    readout.append(el("span", "master-label", "MASTER"), this.masterTempo);
+    m.node.prepend(readout);
+    $("#consoleRack").append(makeFxRack(this.engine, 0, "Delay"), m.node, makeFxRack(this.engine, 1, "Reverb"));
     this.controls.masterPanel = m;
     $("#spanSelect").value = String(this.saved.span);
     $("#fadeSelect").value = String(this.saved.fadeTime);
@@ -182,10 +191,10 @@ export class App {
     for (const seg of document.querySelectorAll(".seg")) {
       seg.addEventListener("click", () => this.showView(seg.dataset.view));
     }
-    this.showView(this.saved.view || "decks");
+    this.showView(this.saved.view === "tracks" ? "tracks" : "decks");
     $("#spanSelect").addEventListener("change", (e) => {
       const s = Number(e.target.value);
-      for (const id of ["A", "B"]) { this.waves[id].main.setSpan(s); this.waves[id].over.setSpan(s); }
+      for (const id of DECK_IDS) { this.waves[id].main.setSpan(s); this.waves[id].over.setSpan(s); }
       this.persist();
     });
     $("#fadeSelect").addEventListener("change", (e) => {
@@ -194,7 +203,7 @@ export class App {
       this.persist();
     });
     $("#btnMarker").addEventListener("click", () => {
-      const live = ["A", "B"].filter((id) => this.decks[id].playing).map((id) => `${id}${this.decks[id].isStream ? " (stream)" : ""}`);
+      const live = DECK_IDS.filter((id) => this.decks[id].playing).map((id) => `${id}${this.decks[id].isStream ? " (stream)" : ""}`);
       const e = this.log.add("marker", `manual marker · decks ${live.length ? live.join("+") : "silent"}`);
       this.status(`Marker at ${fmtTime(e.at)}.`);
       tick(10);
@@ -203,6 +212,7 @@ export class App {
 
   showView(name) {
     this.currentView = name;
+    $(".console-main").classList.toggle("browse-only", name === "tracks");
     document.querySelectorAll(".seg").forEach((s) => s.classList.toggle("is-active", s.dataset.view === name));
     document.querySelectorAll(".view").forEach((v) => v.classList.toggle("is-active", v.dataset.view === name));
     this.persist();
@@ -218,7 +228,7 @@ export class App {
 
   // ---------- decks ----------
   bindDecks() {
-    for (const id of ["A", "B"]) {
+    for (const id of DECK_IDS) {
       const p = this.controls[`deck-${id}`];
       const deck = this.decks[id];
 
@@ -233,6 +243,32 @@ export class App {
         if (deck.playing) this.log.add("stop", `Deck ${id} stop · ${deck.rec?.name} at ${fmtTime(deck.position)}`);
         deck.stop();
       });
+      p.cup.addEventListener("click", async () => {
+        if (!deck.hasTrack || deck.cueHold) return;
+        await this.engine.enable();
+        deck.goCue();
+        deck.play();
+      });
+      p.leader.addEventListener("click", () => {
+        this.masterDeck = id;
+        DECK_IDS.forEach((key) => this.syncDeck(key));
+      });
+      p.sync.addEventListener("click", () => {
+        const master = this.decks[this.masterDeck];
+        if (!deck.hasTrack || !master.hasTrack || master === deck) {
+          this.status("Load a track on another deck and select it as tempo master first.");
+          return;
+        }
+        const target = 100 * (master.bpm / deck.baseBpm - 1);
+        deck.setTempoPct(target);
+        this.status(Math.abs(deck.tempoPct - target) < 0.01
+          ? `Deck ${id} matched ${master.bpm.toFixed(2)} BPM. Use the waveform to align beats.`
+          : `Deck ${id} needs a wider tempo range to match master.`);
+      });
+      p.loop.addEventListener("change", () => {
+        if (deck.hasTrack) deck.setLoopBeats(Number(p.loop.value));
+        else p.loop.value = "0";
+      });
       p.cueGo.addEventListener("click", () => { if (deck.hasTrack) deck.goCue(); });
       p.levelBtn.addEventListener("click", () => this.levelDeck(id));
       p.fadeIn.addEventListener("click", () => this.rampFader(id, 1));
@@ -241,6 +277,7 @@ export class App {
 
       const f = attachFader(p.tempoTrack, {
         value: 0.5,
+        vertical: true,
         fine: () => this.saved.fineDrag,
         onChange: (u) => {
           const pct = (u - 0.5) * 2 * this.saved.rateLimit;
@@ -267,10 +304,11 @@ export class App {
       ? "Streaming: decoded as it plays, so long files stay in memory-safe territory."
       : "Buffered in memory for sample-accurate cueing.";
 
-    const semi = deck.semitones;
-    p.bpmOut.textContent = deck.hasTrack
-      ? `${deck.baseBpm.toFixed(1)} BPM${Math.abs(semi) > 0.05 ? ` ${semi > 0 ? "+" : ""}${semi.toFixed(2)} st` : ""}`
-      : "— BPM";
+    p.bpmOut.textContent = deck.hasTrack ? deck.bpm.toFixed(2) : "— BPM";
+    p.leader.setAttribute("aria-pressed", String(id === this.masterDeck));
+    if (id === this.masterDeck) this.masterTempo.textContent = deck.hasTrack ? deck.bpm.toFixed(2) : "—";
+    const loopValue = String(deck.loopBeats);
+    p.loop.value = [...p.loop.options].some((option) => option.value === loopValue) ? loopValue : "0";
     p.pctOut.textContent = `${deck.tempoPct >= 0 ? "+" : ""}${deck.tempoPct.toFixed(1)}%`;
     // The thumb is repainted from the deck's real rate, so it never lies after a
     // load resets tempo or after a tighter tempo limit clamps an existing offset.
@@ -356,7 +394,7 @@ export class App {
   }
 
   async loadNext(id) {
-    const loaded = [this.decks.A.rec?.id, this.decks.B.rec?.id].filter(Boolean);
+    const loaded = DECK_IDS.map((key) => this.decks[key].rec?.id).filter(Boolean);
     const next = this.library.nextUp(loaded);
     if (!next) { this.status("Queue is empty. Add items in Tracks, then tap Next."); return; }
     await this.loadInto(id, next);
@@ -401,8 +439,10 @@ export class App {
       if (b.dataset.a === "nudge+") deck.setBeat1FromTime(deck.beat1 + 0.001);
       if (b.dataset.a === "cueHere") deck.setCueHere();
       if (b.dataset.a === "match") {
-        const other = id === "A" ? this.decks.B : this.decks.A;
-        if (other.hasTrack) { deck.matchFrom(other); this.status(`Deck ${id} matched to ${deck.baseBpm.toFixed(2)}.`); }
+        const other = this.decks[this.masterDeck] !== deck && this.decks[this.masterDeck].hasTrack
+          ? this.decks[this.masterDeck]
+          : Object.values(this.decks).find((candidate) => candidate !== deck && candidate.hasTrack);
+        if (other?.hasTrack) { deck.matchFrom(other); this.status(`Deck ${id} matched to ${deck.baseBpm.toFixed(2)}.`); }
         else this.status("The other deck has nothing loaded.");
       }
       if (b.dataset.a === "tap") {
@@ -424,8 +464,8 @@ export class App {
       }
       if (b.dataset.limit !== undefined) {
         this.saved.rateLimit = Number(b.dataset.limit);
-        for (const d of ["A", "B"]) this.decks[d].setRateLimit(this.saved.rateLimit);
-        for (const d of ["A", "B"]) this.controls[`tempo-${d}`].commit(0.5);
+        for (const d of DECK_IDS) this.decks[d].setRateLimit(this.saved.rateLimit);
+        for (const d of DECK_IDS) this.controls[`tempo-${d}`].commit(0.5);
         body.querySelectorAll("[data-limit]").forEach((x) => x.classList.toggle("is-a", Number(x.dataset.limit) === this.saved.rateLimit));
         this.status(this.saved.rateLimit === 0 ? "Tempo locked to original pitch." : `Tempo limited to ±${this.saved.rateLimit}%.`);
         this.persist();
@@ -451,10 +491,17 @@ export class App {
 
   // ---------- channels ----------
   bindChannels() {
-    for (const id of ["A", "B"]) {
+    for (const id of DECK_IDS) {
       const strip = this.controls[`strip-${id}`];
       const deck = this.decks[id];
       this.engine.addChannel(id);
+      strip.fx.forEach((button, slot) => {
+        button.addEventListener("click", () => {
+          const on = button.getAttribute("aria-pressed") !== "true";
+          this.engine.setFxSend(id, slot, on);
+          button.setAttribute("aria-pressed", String(on));
+        });
+      });
 
       for (const key of Object.keys(KNOB_SPECS)) {
         const spec = KNOB_SPECS[key];
@@ -467,7 +514,9 @@ export class App {
           cell.knob.classList.toggle("is-center", spec.home === 0.5 && Math.abs(v - 0.5) < 0.004);
           this.persist();
         };
-        const knob = attachKnob(cell.knob, {
+        const attach = key === "fader" ? attachFader : attachKnob;
+        const knob = attach(cell.knob, {
+          vertical: key === "fader",
           value: start,
           onChange: apply,
           detents: spec.home === 0.5 ? [0.5] : [],
@@ -500,7 +549,7 @@ export class App {
       });
 
       deck.onChange(() => { strip.name.textContent = deck.hasTrack ? deck.rec.name : "No track loaded"; });
-      this.meters[id] = new Meter(strip.meter, { stereo: false });
+      this.meters[id] = new Meter(strip.meter, { vertical: true });
     }
   }
 
@@ -555,7 +604,7 @@ export class App {
         <button class="mini" data-x="reset">Reset EQ / filters</button>
         <button class="mini" data-x="unity">Faders to 65%</button>
         <button class="mini" data-x="zero">Faders to 0</button>
-        <button class="mini" data-x="stop">Stop both decks</button>
+        <button class="mini" data-x="stop">Stop all decks</button>
       </div>
       <p class="tagline">SESSION</p>
       <div class="row">
@@ -580,10 +629,10 @@ export class App {
         return;
       }
       const x = b.dataset.x;
-      if (x === "reset") for (const id of ["A", "B"]) for (const k of ["hi", "mid", "lo", "hpf", "lpf"]) this.controls[`ch-${id}-${k}`].commit(KNOB_SPECS[k].home);
-      if (x === "unity") for (const id of ["A", "B"]) this.rampFader(id, 0.65, 2);
-      if (x === "zero") for (const id of ["A", "B"]) this.rampFader(id, 0, 2);
-      if (x === "stop") for (const id of ["A", "B"]) this.decks[id].stop();
+      if (x === "reset") for (const id of DECK_IDS) for (const k of ["hi", "mid", "lo", "hpf", "lpf"]) this.controls[`ch-${id}-${k}`].commit(KNOB_SPECS[k].home);
+      if (x === "unity") for (const id of DECK_IDS) this.rampFader(id, 0.65, 2);
+      if (x === "zero") for (const id of DECK_IDS) this.rampFader(id, 0, 2);
+      if (x === "stop") for (const id of DECK_IDS) this.decks[id].stop();
       if (x === "log") this.openSheet("Running order", el("pre", "logbox", this.log.toText().replace(/</g, "&lt;")));
       if (x === "logexport") this.downloadText(this.log.toText(), `selector-session-${new Date().toISOString().slice(0, 10)}.txt`);
       if (x === "logreset") { await this.log.reset(); this.status("Session log cleared."); this.closeSheet(); }
@@ -600,8 +649,7 @@ export class App {
     $("#searchInput").addEventListener("input", () => this.renderLists());
     for (const b of document.querySelectorAll("[data-tab]")) b.addEventListener("click", () => this.setTab(b.dataset.tab));
     this.setTab("library");
-    $("#btnNextA").addEventListener("click", () => this.loadNext("A"));
-    $("#btnNextB").addEventListener("click", () => this.loadNext("B"));
+    for (const id of DECK_IDS) $(`#btnNext${id}`).addEventListener("click", () => this.loadNext(id));
     $("#queueList").addEventListener("click", (e) => {
       const b = e.target.closest("button");
       if (!b) return;
@@ -610,8 +658,7 @@ export class App {
       if (b.dataset.q === "up") this.moveInQueue(id, -1);
       if (b.dataset.q === "down") this.moveInQueue(id, 1);
       if (b.dataset.q === "out") { this.library.dequeue(id); this.renderQueue(); }
-      if (b.dataset.q === "A") this.loadInto("A", this.library.byId(id));
-      if (b.dataset.q === "B") this.loadInto("B", this.library.byId(id));
+      if (DECK_IDS.includes(b.dataset.q)) this.loadInto(b.dataset.q, this.library.byId(id));
     });
     $("#spGo").addEventListener("click", () => this.searchSpotify());
     $("#spInput").addEventListener("keydown", (e) => {
@@ -734,7 +781,7 @@ export class App {
       );
       const btns = el("div", "btns");
       const mk = (label, cls, q) => { const b = el("button", `mini ${cls}`, label); b.type = "button"; b.dataset.q = q; return b; };
-      btns.append(mk("↑", "", "up"), mk("↓", "", "down"), mk("A", "is-a", "A"), mk("B", "is-b", "B"), mk("×", "", "out"));
+      btns.append(mk("↑", "", "up"), mk("↓", "", "down"), ...DECK_IDS.map((id) => mk(id, `is-${id.toLowerCase()}`, id)), mk("×", "", "out"));
       li.append(meta, btns);
       ul.append(li);
     });
@@ -750,6 +797,7 @@ export class App {
     $("#takeList").hidden = tab !== "takes";
     $("#spList").hidden = tab !== "spotify";
     $("#spSearchRow").hidden = tab !== "spotify";
+    $(".collection-head").hidden = tab !== "library";
     if (tab === "spotify" && !this.spItems) this.renderSpotify();
     this.renderQueue();
     this.renderLists();
@@ -781,26 +829,32 @@ export class App {
     if (!list.length) {
       ul.append(el("li", "empty", this.library.tracks.length ? "No matches." : "Add your music from Files. Nothing leaves this device."));
     }
-    const loaded = new Set([this.decks.A.rec?.id, this.decks.B.rec?.id]);
-    for (const t of list) {
-      const li = el("li", "track");
+    for (const [index, t] of list.entries()) {
+      const li = el("li", "track collection-row");
       li.dataset.id = t.id;
-      li.classList.toggle("is-loaded", loaded.has(t.id));
-      const meta = el("div", "meta");
-      const sub = `${fmtTime(t.duration)} · ${fmtBytes(t.size)}${Number.isFinite(t.rmsDb) ? ` · ${t.rmsDb.toFixed(1)} dB` : ""}${t.liveOnly ? " · timeline only" : ""}`;
-      meta.append(el("div", "name", t.name), el("div", "sub", sub));
+      const loaded = DECK_IDS.filter((id) => this.decks[id].rec?.id === t.id);
+      li.classList.toggle("is-loaded", loaded.length > 0);
+      const parts = t.name.replace(/\.[a-z0-9]+$/i, "").split(" - ");
+      const artist = parts.length > 1 ? parts.shift() : "—";
+      li.append(
+        el("span", "track-number", loaded.join("") || String(index + 1)),
+        el("span", "track-title", parts.join(" - ")),
+        el("span", "track-artist", artist),
+        el("span", "track-bpm", t.bpm ? Number(t.bpm).toFixed(2) : "—"),
+        el("span", "track-time", fmtTime(t.duration)),
+        el("span", "track-file", t.name),
+      );
       const btns = el("div", "btns");
       const mk = (label, cls, fn) => { const b = el("button", `mini ${cls}`, label); b.type = "button"; b.addEventListener("click", fn); return b; };
       btns.append(
-        mk("A", "is-a", () => this.loadInto("A", t)),
-        mk("B", "is-b", () => this.loadInto("B", t)),
+        ...DECK_IDS.map((id) => mk(id, `is-${id.toLowerCase()}`, () => this.loadInto(id, t))),
         mk("Next", this.library.queue.includes(t.id) ? "is-a" : "", async () => {
           await this.library.enqueue(t.id);
           this.setTab("queue");
         }),
         mk("×", "", async () => { await this.library.remove(t.id); this.renderLists(); this.renderQueue(); }),
       );
-      li.append(meta, btns);
+      li.append(btns);
       ul.append(li);
     }
 
@@ -1066,7 +1120,7 @@ export class App {
     let lastRec = 0;
     const lastText = {};
     const frame = () => {
-      for (const id of ["A", "B"]) {
+      for (const id of DECK_IDS) {
         const deck = this.decks[id];
         deck.tick();
         this.waves[id].main.draw();
@@ -1081,7 +1135,7 @@ export class App {
       }
       const m = this.engine.masterLevel();
       this.meters.master.draw(m.l, m.r);
-      for (const id of ["A", "B"]) this.meters[id].draw(this.engine.channelLevel(id));
+      for (const id of DECK_IDS) this.meters[id].draw(this.engine.channelLevel(id));
       if (this.recorder.isRecording && Date.now() - lastRec > 500) {
         lastRec = Date.now();
         $("#btnRecord").innerHTML = `<span class="rec-dot"></span>${fmtTime(this.recorder.elapsed)}`;

@@ -1,4 +1,4 @@
-const VERSION = "v5-phone-cue";
+const VERSION = "v6-console";
 const SHELL = [
   "./",
   "./index.html",
@@ -6,6 +6,8 @@ const SHELL = [
   "./phone-cue.js",
   "./phone-cue.css",
   "./css/app.css",
+  "./css/console.css",
+  "./js/ui/fx-rack.js",
   "./js/main.js",
   "./js/ui/app.js",
   "./js/ui/build.js",

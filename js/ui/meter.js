@@ -6,10 +6,11 @@ const SEGMENTS = 26;
 const ZERO_VU_DB = -18;
 
 export class Meter {
-  constructor(canvas, { stereo = false } = {}) {
+  constructor(canvas, { stereo = false, vertical = false } = {}) {
     this.canvas = canvas;
     this.c = canvas.getContext("2d", { alpha: false });
     this.stereo = stereo;
+    this.vertical = vertical;
     this._last = "";
     this._fit();
     window.addEventListener("resize", () => { this._fit(); this._last = ""; }, { passive: true });
@@ -27,12 +28,25 @@ export class Meter {
   }
 
   draw(lDb, rDb = null) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (Math.abs(this.canvas.clientWidth * dpr - this.w) > 1 || Math.abs(this.canvas.clientHeight * dpr - this.h) > 1) {
+      this._fit();
+      this._last = "";
+    }
     const key = `${this.w}|${this.h}|${lDb.toFixed(1)}|${(rDb ?? 0).toFixed(1)}`;
     if (key === this._last) return;
     this._last = key;
     const c = this.c;
     c.fillStyle = "#070c15";
     c.fillRect(0, 0, this.w, this.h);
+    if (this.vertical) {
+      c.save();
+      c.translate(0, this.h);
+      c.rotate(-Math.PI / 2);
+      this._track(lDb, 0, this.w, this.h);
+      c.restore();
+      return;
+    }
     const tracks = this.stereo ? [lDb, rDb] : [lDb];
     const gap = this.dpr;
     const th = (this.h - gap * (tracks.length - 1)) / tracks.length;
@@ -48,9 +62,9 @@ export class Meter {
     return u * this.w;
   }
 
-  _track(db, y, h) {
+  _track(db, y, h, length = this.w) {
     const c = this.c;
-    const segW = this.w / SEGMENTS;
+    const segW = length / SEGMENTS;
     const active = Math.round(clamp((db - FLOOR_DB) / (0 - FLOOR_DB), 0, 1) * SEGMENTS);
     for (let i = 0; i < SEGMENTS; i++) {
       const on = i < active;
@@ -61,7 +75,7 @@ export class Meter {
         : frac > 0.82 ? "#ffb347"
         : frac > 0.5 ? "#4fd8e8"
         : "#2f7f92";
-      c.fillRect(Math.round(i * segW), Math.round(y), Math.ceil(segW - 1.2 * this.dpr), Math.round(h));
+      c.fillRect(Math.round(i * segW), Math.round(y), Math.max(1, Math.ceil(segW - 1.2 * this.dpr)), Math.round(h));
     }
   }
 }

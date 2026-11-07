@@ -1,4 +1,4 @@
-const VERSION = "v7-fullscreen";
+const VERSION = "v8-file-picker";
 const SHELL = [
   "./",
   "./index.html",
